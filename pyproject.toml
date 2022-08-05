@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "youtube_telegram_bot"
+version = "0.1.0"
+description = ""
+authors = ["Daniel Montoya <da03@protonmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+SQLAlchemy = "^1.4.39"
+bs4 = "^0.0.1"
+selenium = "^4.3.0"
+Telethon = "^1.24.0"
+python-dotenv = "^0.20.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
