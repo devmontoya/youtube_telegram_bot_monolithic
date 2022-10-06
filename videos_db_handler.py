@@ -1,33 +1,45 @@
-from sqlalchemy import select, and_
-from tables import channels, youtube_videos, clients
+from sqlalchemy import and_, select
+
 from logger import log
+from tables import channels, clients, youtube_videos
+
 
 def user_channel_request(session, channel_name, user_id, queue):
     """
     Maneja la petición de un usuario acerca de un canal, en caso de ser nuevo la función
     se encargará de buscar los videos y en caso de que no, se buscará los videos ya presentes en la DB.
     """
-    result_channels = session.query(channels).filter(
-        channels.channelName == channel_name).all()
+    result_channels = (
+        session.query(channels).filter(channels.channelName == channel_name).all()
+    )
 
     new_data = []
     if len(result_channels) != 0:
         log.debug("Ya existe información del canal")
-        result_channel_client = session.query(clients).filter(
-            and_(clients.chat_id == user_id, clients.channel == channel_name)).all()
+        result_channel_client = (
+            session.query(clients)
+            .filter(and_(clients.chat_id == user_id, clients.channel == channel_name))
+            .all()
+        )
 
         if len(result_channel_client) != 0:
             log.debug("Este usuario ya ha solicitado información de este canal")
             client = session.execute(
                 select(clients).filter(
-                    and_(
-                        clients.chat_id == user_id,
-                        clients.channel == channel_name))).scalar_one()
+                    and_(clients.chat_id == user_id, clients.channel == channel_name)
+                )
+            ).scalar_one()
 
-            new_videos = session.query(youtube_videos).filter(
-                and_(
-                    youtube_videos.channelName == channel_name,
-                    youtube_videos.id > client.lastVideoID)).all()
+            new_videos = (
+                session.query(youtube_videos)
+                .filter(
+                    and_(
+                        youtube_videos.channelName == channel_name,
+                        youtube_videos.id > client.lastVideoID,
+                    )
+                )
+                .all()
+            )
             new_videos = list(reversed(new_videos))
 
             # Actualiza el id del último video para el cliente si es necesario
@@ -37,11 +49,14 @@ def user_channel_request(session, channel_name, user_id, queue):
         else:
             log.info(f"Usuario nuevo ID: {user_id}")
 
-            new_videos = session.query(youtube_videos).filter(
-                youtube_videos.channelName == channel_name).all()
+            new_videos = (
+                session.query(youtube_videos)
+                .filter(youtube_videos.channelName == channel_name)
+                .all()
+            )
             new_videos = list(reversed(new_videos))
 
-            last_id = max((i.id for i in new_videos))
+            last_id = max(i.id for i in new_videos)
 
             new_row_to_db = clients(user_id, channel_name, last_id)
             session.add(new_row_to_db)
@@ -73,9 +88,12 @@ def add_new_videos(session, new_channel, new_data):
     new_data = [list(reversed(new_data[0])), list(reversed(new_data[1]))]
 
     try:
-        curr_videos = session.query(youtube_videos).filter(
-            youtube_videos.channelName == new_channel).all()
-        last_id = max((i.id for i in curr_videos))
+        curr_videos = (
+            session.query(youtube_videos)
+            .filter(youtube_videos.channelName == new_channel)
+            .all()
+        )
+        last_id = max(i.id for i in curr_videos)
     except BaseException:
         log.info(f"No se encuentra información sobre este canal '{new_channel}'")
         curr_videos = []
@@ -90,8 +108,9 @@ def add_new_videos(session, new_channel, new_data):
 
     else:
 
-        youtube_videos_db = [[video.id, video.title, video.url]
-                             for video in reversed(curr_videos)]
+        youtube_videos_db = [
+            [video.id, video.title, video.url] for video in reversed(curr_videos)
+        ]
         urls_yt_db = [video.url for video in reversed(curr_videos)]
 
         log.debug(new_data[1])
@@ -113,19 +132,21 @@ def add_new_videos(session, new_channel, new_data):
                 session.add(new_row_to_db)
 
     # Updating LastID
-    curr_videos_last_id = session.query(youtube_videos).filter(
-        youtube_videos.channelName == new_channel).all()
-    last_id = max((i.id for i in curr_videos_last_id))
+    curr_videos_last_id = (
+        session.query(youtube_videos)
+        .filter(youtube_videos.channelName == new_channel)
+        .all()
+    )
+    last_id = max(i.id for i in curr_videos_last_id)
 
     channel = session.execute(
-        select(channels).filter_by(
-            channelName=new_channel)).scalar_one()
+        select(channels).filter_by(channelName=new_channel)
+    ).scalar_one()
     channel.lastVideoID = last_id
 
     log.info(f"LastVideoID del canal {new_channel}: {channel.lastVideoID}")
 
 
 def list_channels_user(session, user_id):
-    channels_list = session.query(clients).filter(
-        clients.chat_id == user_id).all()
+    channels_list = session.query(clients).filter(clients.chat_id == user_id).all()
     return (row.channel for row in channels_list)

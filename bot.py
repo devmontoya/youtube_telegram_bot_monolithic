@@ -1,23 +1,21 @@
-import queue
 import asyncio
 import concurrent.futures
+import queue
 import time
 
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-from selenium import webdriver
-
+from sqlalchemy import and_, select
 from telethon import TelegramClient, events
 
-from sqlalchemy import select, and_
-from base import Session, engine, Base
-from tables import channels, youtube_videos, clients
-from videos_db_handler import add_new_videos, user_channel_request, list_channels_user
-
-from logger import log
+from base import Base, Session, engine
 from config import settings
+from logger import log
+from tables import channels, clients, youtube_videos
+from videos_db_handler import add_new_videos, list_channels_user, user_channel_request
 
 api_id = settings.api_id
 api_hash = settings.api_hash
@@ -34,20 +32,19 @@ q_results_user = queue.Queue()  # Results queue for users
 
 def fetch_html(channel: str, driver) -> str:
     """Obtiene el archivo html final luego de ser procesado por Selenium Webdriver"""
-    url = f'https://www.youtube.com/{channel}/videos'
+    url = f"https://www.youtube.com/{channel}/videos"
     driver.get(url)
     # Wait until the page has an element with id "video-title"
     # time.sleep(10) # A easier way but static
-    _ = WebDriverWait(
-        driver, 10).until(
-        EC.presence_of_element_located(
-            (By.ID, "video-title")))
+    _ = WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.ID, "video-title"))
+    )
 
-    html = driver.page_source.encode('utf-8').strip()
-    soup = BeautifulSoup(html, 'html.parser')
-    common_tag = soup.findAll('a', id='video-title')[:5]
-    titles = [element.get('title') for element in common_tag]
-    urls = [element.get('href') for element in common_tag]
+    html = driver.page_source.encode("utf-8").strip()
+    soup = BeautifulSoup(html, "html.parser")
+    common_tag = soup.findAll("a", id="video-title")[:5]
+    titles = [element.get("title") for element in common_tag]
+    urls = [element.get("href") for element in common_tag]
     return [titles, urls]
 
 
@@ -74,7 +71,7 @@ def scraper(queue_in, queue_results_user, queue_results_updater):
 
 
 # Bot initializer
-client = TelegramClient('session_name', api_id, api_hash)
+client = TelegramClient("session_name", api_id, api_hash)
 
 # Función que maneja mensajes entrantes
 
@@ -106,16 +103,14 @@ async def channel(event):
 
     elif event.raw_text == "1":
 
-        result_client = session.query(clients).filter(
-            clients.chat_id == user_id).all()
+        result_client = session.query(clients).filter(clients.chat_id == user_id).all()
         channel_names = [row.channel for row in result_client]
 
         if len(channel_names) != 0:
 
             for channel_name in channel_names:
 
-                new_data = user_channel_request(
-                    session, channel_name, user_id, q)
+                new_data = user_channel_request(session, channel_name, user_id, q)
 
                 if len(new_data[0]) != 0:
                     string = f"Nuevos videos del canal **{channel_name}**\n"
@@ -141,18 +136,21 @@ async def channel(event):
             log.debug("La información ya está lista")
 
         else:  # Es necesario buscar la información
-            while (q_results_user.qsize() == 0):
+            while q_results_user.qsize() == 0:
                 time.sleep(1)
             new_data = q_results_user.get()
             add_new_videos(session, channel_name, new_data)
 
             # Updating last_id client
-            curr_videos = session.query(youtube_videos).filter(
-                youtube_videos.channelName == channel_name).all()
-            last_id = max([i.id for i in curr_videos])
+            curr_videos = (
+                session.query(youtube_videos)
+                .filter(youtube_videos.channelName == channel_name)
+                .all()
+            )
+            last_id = max(i.id for i in curr_videos)
             client = session.execute(
-                select(clients).filter_by(
-                    channel=channel_name)).scalar_one()
+                select(clients).filter_by(channel=channel_name)
+            ).scalar_one()
             client.lastVideoID = last_id
 
         log.debug("Datos:")
@@ -180,9 +178,8 @@ async def channel(event):
             await event.reply("No se eligió un canal")
         elif channel_name in list(list_channels):
             session.query(clients).filter(
-                and_(
-                    clients.chat_id == user_id,
-                    clients.channel == channel_name)).delete()
+                and_(clients.chat_id == user_id, clients.channel == channel_name)
+            ).delete()
             session.commit()
             await event.reply(f"Usted ya no sigue el canal {channel_name}")
         else:
@@ -232,12 +229,12 @@ async def updater(queue_input, queue_results):
 
         await asyncio.sleep(10)
 
-        while (queue_results.qsize() < len(channel_names)):
+        while queue_results.qsize() < len(channel_names):
             await asyncio.sleep(2)
         log.debug("Luego de counter")
 
         counter = 0
-        while (queue_results.qsize() != 0):
+        while queue_results.qsize() != 0:
             log.debug(f"Tamaño queue de resultados: {queue_results.qsize()}")
             try:
                 new_data = queue_results.get()
@@ -261,10 +258,13 @@ async def main():
     updater_task = asyncio.create_task(updater(q, q_results_updater))
 
     with concurrent.futures.ThreadPoolExecutor() as pool:
-        result = await loop.run_in_executor(pool, scraper, q, q_results_user, q_results_updater)
+        result = await loop.run_in_executor(
+            pool, scraper, q, q_results_user, q_results_updater
+        )
 
     await updater_task
     await bot_task
+
 
 asyncio.get_event_loop().run_until_complete(main())
 asyncio.run(main())

@@ -1,12 +1,12 @@
-#from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy import Column, String, Integer, ForeignKey
+# from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from base import Base
 
 
 class clients(Base):
-    __tablename__ = 'clients'
+    __tablename__ = "clients"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     chat_id = Column(Integer)
@@ -20,9 +20,9 @@ class clients(Base):
 
 
 class channels(Base):
-    __tablename__ = 'channels'
+    __tablename__ = "channels"
 
-    #id = Column(Integer, primary_key=True, autoincrement=True)
+    # id = Column(Integer, primary_key=True, autoincrement=True)
     channelName = Column(String, primary_key=True)
     lastVideoID = Column(Integer)
 
@@ -32,7 +32,7 @@ class channels(Base):
 
 
 class youtube_videos(Base):
-    __tablename__ = 'youtube_videos'
+    __tablename__ = "youtube_videos"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     channelName = Column(String, ForeignKey("channels.channelName"))
