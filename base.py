@@ -1,13 +1,12 @@
-from dotenv import load_dotenv
 import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-load_dotenv()
+from config import settings
 
-engine = create_engine(os.environ["engine"])
+engine = create_engine(settings.engine_db)
 Session = sessionmaker(bind=engine)
 
 Base = declarative_base() 

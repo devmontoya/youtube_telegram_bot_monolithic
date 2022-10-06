@@ -2,27 +2,26 @@ import queue
 import asyncio
 import concurrent.futures
 import time
-import os
 
 from bs4 import BeautifulSoup
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium import webdriver
-from dotenv import load_dotenv
 
 from telethon import TelegramClient, events
 
 from sqlalchemy import select, and_
 from base import Session, engine, Base
 from tables import channels, youtube_videos, clients
-from handling_videos_db import add_new_videos, user_channel_request, list_channels_user
+from videos_db_handler import add_new_videos, user_channel_request, list_channels_user
 
-load_dotenv()
-api_id = os.environ["api_id"]
-api_hash = os.environ["api_hash"]
-bot_token = os.environ["bot_token"]
+from logger import log
+from config import settings
 
+api_id = settings.api_id
+api_hash = settings.api_hash
+bot_token = settings.bot_token
 
 Base.metadata.create_all(engine)
 
@@ -39,7 +38,7 @@ def fetch_html(channel: str, driver) -> str:
     driver.get(url)
     # Wait until the page has an element with id "video-title"
     # time.sleep(10) # A easier way but static
-    element = WebDriverWait(
+    _ = WebDriverWait(
         driver, 10).until(
         EC.presence_of_element_located(
             (By.ID, "video-title")))
@@ -54,8 +53,8 @@ def fetch_html(channel: str, driver) -> str:
 
 def scraper(queue_in, queue_results_user, queue_results_updater):
     """
-    Despliega y mantiene el webdriver, el cual está siempre disponible para entregar
-    los últimos videos de los canales puestos en la queue 'queue'
+    Despliega y mantiene el webdriver, el cual está siempre disponible para
+    entregar los últimos videos de los canales puestos en la queue 'queue'
     """
     browser = webdriver.Firefox()
 
@@ -64,7 +63,7 @@ def scraper(queue_in, queue_results_user, queue_results_updater):
         if queue_in.qsize() != 0:
             input_queue_data = queue_in.get()
             querier, channel = input_queue_data
-            print(f"Channel: {channel}")
+            log.debug(f"Channel: {channel}")
             result = fetch_html(channel, browser)
             if querier == "user":
                 queue_results_user.put(result)
@@ -86,7 +85,7 @@ async def channel(event):
     await event.reply(f"Recibido: {event.raw_text}")
     # Asegura que el id a usar no lleve a overflow en la database SQL
     user_id = event.chat_id % 1000000
-    print(f"Chat id: {user_id}")
+    log.info(f"User request, Chat id: {user_id}")
 
     session = Session()
 
@@ -132,14 +131,14 @@ async def channel(event):
 
     elif event.raw_text[0] == "2":
         channel_name = event.raw_text[2:].lower()
-        print(f"Canal '{channel_name}'")
+        log.debug(f"Canal '{channel_name}'")
 
         new_data = user_channel_request(session, channel_name, user_id, q)
-        print(f"Tamaño de la cola: {q.qsize()}")
-        print(f"new_data: {new_data}")
+        log.debug(f"Tamaño de la cola: {q.qsize()}")
+        log.debug(f"new_data: {new_data}")
 
         if len(new_data) != 0:  # La información ya está lista
-            print("La información ya está lista")
+            log.debug("La información ya está lista")
 
         else:  # Es necesario buscar la información
             while (q_results_user.qsize() == 0):
@@ -156,8 +155,8 @@ async def channel(event):
                     channel=channel_name)).scalar_one()
             client.lastVideoID = last_id
 
-        print("Datos:")
-        print(new_data)
+        log.debug("Datos:")
+        log.debug(new_data)
         session.commit()
 
         # Printing process
@@ -173,7 +172,7 @@ async def channel(event):
 
     elif event.raw_text[0] == "3":
         channel_name = event.raw_text[2:].lower()
-        print(f"Canal '{channel_name}'")
+        log.debug(f"Canal '{channel_name}'")
 
         list_channels = list_channels_user(session, user_id)
 
@@ -209,10 +208,10 @@ async def channel(event):
 
 async def bot():
     """Función que inicial el bot Telegram"""
-    print("Inicio del bot")
+    log.info("Inicio del bot")
 
     await client.start(bot_token=bot_token)
-    print("Bot corriendo")
+    log.info("Bot corriendo")
     await client.run_until_disconnected()
 
 
@@ -223,7 +222,7 @@ async def updater(queue_input, queue_results):
     while True:
         await asyncio.sleep(60)
 
-        print("Ejecutando actualización de canales")
+        log.info("Ejecutando actualización de canales")
 
         result_channels = session.query(channels).all()
         channel_names = [row.channelName for row in result_channels]
@@ -235,11 +234,11 @@ async def updater(queue_input, queue_results):
 
         while (queue_results.qsize() < len(channel_names)):
             await asyncio.sleep(2)
-        print("Luego de counter")
+        log.debug("Luego de counter")
 
         counter = 0
         while (queue_results.qsize() != 0):
-            print(f"Tamaño queue de resultados: {queue_results.qsize()}")
+            log.debug(f"Tamaño queue de resultados: {queue_results.qsize()}")
             try:
                 new_data = queue_results.get()
             except BaseException:
@@ -250,7 +249,7 @@ async def updater(queue_input, queue_results):
 
             counter += 1
 
-        print("Se terminó de actualizar los canales")
+        log.info("Se terminó de actualizar los canales")
         session.commit()
     session.close()
 

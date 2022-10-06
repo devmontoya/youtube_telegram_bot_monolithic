@@ -10,7 +10,7 @@ SQLAlchemy = "^1.4.39"
 bs4 = "^0.0.1"
 selenium = "^4.3.0"
 Telethon = "^1.24.0"
-python-dotenv = "^0.20.0"
+pydantic = {extras = ["dotenv"], version = "^1.10.2"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
