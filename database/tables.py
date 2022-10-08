@@ -1,8 +1,7 @@
-# from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy import Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from base import Base
+from database.base_connection import Base
 
 
 class clients(Base):

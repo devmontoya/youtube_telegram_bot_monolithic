@@ -1,7 +1,7 @@
 from sqlalchemy import and_, select
 
+from database.tables import channels, clients, youtube_videos
 from logger import log
-from tables import channels, clients, youtube_videos
 
 
 def user_channel_request(session, channel_name, user_id, queue):
