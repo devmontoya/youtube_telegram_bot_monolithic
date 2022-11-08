@@ -1,4 +1,4 @@
-# Youtube Telegram bot - Monoltico
+# Youtube Telegram bot - Monolítico
 
 **Bot de Telegram desarrollado en lenguaje Python** que permite realizar seguimiento a canales de Youtube elegidos por un usuario, con la capacidad de conservar de manera persistente listas de videos y preferencias de los usuarios para así indicar en una próxima visita únicamente los videos que el usuario no ha visto con anterioridad. Además, este bot funciona de manera **asíncrona**, logrando actualizar su base de datos de videos de manera periódica en segundo plano.
 
